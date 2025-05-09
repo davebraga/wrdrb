@@ -202,6 +202,15 @@ def preprocess_images_only(df_subset, category_encoder, color_encoder):
         valid_category = row["category"]
 
         if valid_color in color_encoder.classes_ and valid_category in category_encoder.classes_:
+            img = cv2.imread(image_path)
+            if img is None:
+                print(f"Imagem não encontrada: {image_path}")
+                continue
+
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, (224, 224)) / 255.0
+            X_images.append(img)
+
             y_colors.append(color_encoder.transform([valid_color])[0])
             y_categories.append(category_encoder.transform([valid_category])[0])
         else:
