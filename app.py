@@ -3,6 +3,7 @@ os.environ['XLA_FLAGS'] = "--xla_gpu_cuda_data_dir='/mnt/c/Program Files/NVIDIA 
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import LabelEncoder
 from PIL import Image
@@ -14,6 +15,15 @@ import uvicorn
 
 
 app = FastAPI()
+
+# Habilitando CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Carregar modelo e encoders
 model = load_model("trained_model.keras")
