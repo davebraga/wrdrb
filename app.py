@@ -1,37 +1,51 @@
+import os
+os.environ['XLA_FLAGS'] = "--xla_gpu_cuda_data_dir='/mnt/c/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.9'"
+
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from tensorflow.keras.models import load_model
-import numpy as np
+from sklearn.preprocessing import LabelEncoder
 from PIL import Image
-import io
+import numpy as np
 import pickle
+import io
 import uvicorn
+
+
 
 app = FastAPI()
 
-# Carregar modelo e encoders localmente (ajuste os caminhos conforme seu ambiente)
-model = load_model("saved_model")
+# Carregar modelo e encoders
+model = load_model("trained_model.keras")
 with open("category_encoder.pkl", "rb") as f:
-    category_encoder = pickle.load(f)
+    category_encoder: LabelEncoder = pickle.load(f)
 with open("color_encoder.pkl", "rb") as f:
-    color_encoder = pickle.load(f)
+    color_encoder: LabelEncoder = pickle.load(f)
 
-def preprocess_image(image_bytes):
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    image = image.resize((160, 160))
-    image_array = np.array(image) / 255.0
-    return np.expand_dims(image_array, axis=0)
+@app.get("/")
+def read_root():
+    return {"status": "API de classificação rodando com FastAPI"}
 
-@app.post("/predict/")
+@app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    image_bytes = await file.read()
-    image_array = preprocess_image(image_bytes)
+    try:
+        image = Image.open(io.BytesIO(await file.read()))
+        image = image.resize((160, 160))
+        image_array = np.array(image) / 255.0
+        image_array = np.expand_dims(image_array, axis=0)
 
-    category_pred, color_pred = model.predict(image_array)
-    category = category_encoder.inverse_transform([np.argmax(category_pred)])[0]
-    color = color_encoder.inverse_transform([np.argmax(color_pred)])[0]
+        category_pred, color_pred = model.predict(image_array)
+        category = category_encoder.inverse_transform([np.argmax(category_pred)])[0]
+        color = color_encoder.inverse_transform([np.argmax(color_pred)])[0]
 
-    return JSONResponse(content={"category": category, "color": color})
+        return JSONResponse(content={
+            "categoria": category,
+            "cor": color
+        })
 
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# Roda localmente sem precisar chamar uvicorn pelo terminal
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
